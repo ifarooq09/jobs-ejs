@@ -10,6 +10,11 @@ app.use(require("body-parser").urlencoded({ extended: true }));
 const session = require("express-session");
 const MongoDBStore = require("connect-mongodb-session")(session);
 const url = process.env.MONGO_URI;
+const passport = require("passport");
+const passportInit = require("./passport/passportInit");
+const flash = require('connect-flash');
+const secretWordRouter = require("./routes/secretWord");
+const authMiddleware = require("./middleware/auth");
 
 let store;
 try {
@@ -42,31 +47,18 @@ if (app.get("env") === "production") {
 }
 
 app.use(session(sessionParms));
-app.use(require("connect-flash")());
+passportInit();
+app.use(passport.initialize());
+app.use(passport.session());
+app.use(flash());
 
-app.get("/secretWord", (req, res) => {
-    if (!req.session.secretWord) {
-        req.session.secretWord = "syzygy";
-    }
-    const errors = req.flash("error");
-    const info = req.flash("info");
-    res.render("secretWord", {
-        secretWord: req.session.secretWord,
-        errors: errors,
-        info: info
-    });
+app.use(require("./middleware/storeLocals"));
+app.get("/", (req, res) => {
+  res.render("index");
 });
+app.use("/sessions", require("./routes/sessionRoutes"));
 
-app.post("/secretWord", (req, res) => {
-    if (req.body.secretWord.toUpperCase()[0] === "P") {
-      req.flash("error", "That word won't work!");
-      req.flash("error", "You can't use words that start with p.");
-    } else {
-      req.session.secretWord = req.body.secretWord;
-      req.flash("info", "The secret word was changed.");
-    }
-    res.redirect("/secretWord");
-});
+app.use("/secretWord", authMiddleware, secretWordRouter);
 
 app.use((req, res) => {
     res.status(404).send(`That page (${req.url}) was not found`);
@@ -81,6 +73,7 @@ const port = process.env.PORT || 3000;
 
 const start = async () => {
     try {
+        await require("./db/connect")(process.env.MONGO_URI)
         app.listen(port, () => {
             console.log(`Server started on port ${port}...`);
         });
