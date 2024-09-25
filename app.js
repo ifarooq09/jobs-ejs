@@ -3,6 +3,7 @@ const express = require('express');
 require('express-async-errors');
 
 const app = express();
+const cookieParser = require('cookie-parser');
 
 app.set("view engine", "ejs");
 app.use(require("body-parser").urlencoded({ extended: true }));
@@ -15,6 +16,7 @@ const passportInit = require("./passport/passportInit");
 const flash = require('connect-flash');
 const secretWordRouter = require("./routes/secretWord");
 const authMiddleware = require("./middleware/auth");
+const jobsRouter = require("./routes/jobs"); // Corrected path
 
 let store;
 try {
@@ -47,18 +49,39 @@ if (app.get("env") === "production") {
 }
 
 app.use(session(sessionParms));
+
+// CSRF middleware
+const csrf = require('host-csrf');
+
+app.use(cookieParser(process.env.SESSION_SECRET));
+app.use(express.urlencoded({ extended: false }));
+
+let csrf_development_mode = true;
+if (app.get("env") === "production") {
+  csrf_development_mode = false;
+  app.set("trust proxy", 1);
+}
+
+const csrf_options = {
+  protected_operations: ["PATCH"],
+  protected_content_types: ["application/json"],
+  development_mode: csrf_development_mode,
+};
+
+const csrf_middleware = csrf(csrf_options);
+
 passportInit();
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
 
 app.use(require("./middleware/storeLocals"));
-app.get("/", (req, res) => {
+app.get("/", csrf_middleware, (req, res) => {
   res.render("index");
 });
-app.use("/sessions", require("./routes/sessionRoutes"));
-
-app.use("/secretWord", authMiddleware, secretWordRouter);
+app.use("/sessions", csrf_middleware, require("./routes/sessionRoutes"));
+app.use("/secretWord", authMiddleware, csrf_middleware, secretWordRouter);
+app.use("/jobs", csrf_middleware, authMiddleware, jobsRouter); // Ensure auth middleware is used here
 
 app.use((req, res) => {
     res.status(404).send(`That page (${req.url}) was not found`);
@@ -73,7 +96,7 @@ const port = process.env.PORT || 3000;
 
 const start = async () => {
     try {
-        await require("./db/connect")(process.env.MONGO_URI)
+        await require("./db/connect")(process.env.MONGO_URI);
         app.listen(port, () => {
             console.log(`Server started on port ${port}...`);
         });
