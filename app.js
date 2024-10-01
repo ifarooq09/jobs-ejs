@@ -10,7 +10,10 @@ app.use(require("body-parser").urlencoded({ extended: true }));
 
 const session = require("express-session");
 const MongoDBStore = require("connect-mongodb-session")(session);
-const url = process.env.MONGO_URI;
+let mongoURL = process.env.MONGO_URI;
+if (process.env.NODE_ENV == "test") {
+  mongoURL = process.env.MONGO_URI_TEST;
+}
 const passport = require("passport");
 const passportInit = require("./passport/passportInit");
 const flash = require('connect-flash');
@@ -21,7 +24,7 @@ const jobsRouter = require("./routes/jobs"); // Corrected path
 let store;
 try {
     store = new MongoDBStore({
-      uri: url,
+      uri: mongoURL,
       collection: "mySessions",
     });
     store.on("error", function (error) {
@@ -79,9 +82,29 @@ app.use(require("./middleware/storeLocals"));
 app.get("/", csrf_middleware, (req, res) => {
   res.render("index");
 });
+
+app.use((req, res, next) => {
+  if (req.path == "/multiply") {
+    res.set("Content-Type", "application/json");
+  } else {
+    res.set("Content-Type", "text/html");
+  }
+  next();
+});
+
 app.use("/sessions", csrf_middleware, require("./routes/sessionRoutes"));
 app.use("/secretWord", authMiddleware, csrf_middleware, secretWordRouter);
 app.use("/jobs", csrf_middleware, authMiddleware, jobsRouter); // Ensure auth middleware is used here
+
+app.get("/multiply", (req, res) => {
+  const result = req.query.first * req.query.second;
+  if (result.isNaN) {
+    result = "NaN";
+  } else if (result == null) {
+    result = "null";
+  }
+  res.json({ result: result });
+});
 
 app.use((req, res) => {
     res.status(404).send(`That page (${req.url}) was not found`);
@@ -96,7 +119,7 @@ const port = process.env.PORT || 3000;
 
 const start = async () => {
     try {
-        await require("./db/connect")(process.env.MONGO_URI);
+        await require("./db/connect")(mongoURL);
         app.listen(port, () => {
             console.log(`Server started on port ${port}...`);
         });

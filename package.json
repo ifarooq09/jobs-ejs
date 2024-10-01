@@ -4,12 +4,16 @@
   "description": "for learning purpose",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon app.js"
+    "start": "nodemon app.js",
+    "test": "set NODE_ENV=test mocha tests/*.js --timeout 5000 --exit"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@faker-js/faker": "^9.0.3",
     "bcryptjs": "^2.4.3",
+    "chai": "^5.1.1",
+    "chai-http": "^5.0.0",
     "connect-flash": "^0.1.1",
     "connect-mongodb-session": "^5.0.0",
     "cookie-parser": "^1.4.6",
@@ -20,13 +24,16 @@
     "express-async-errors": "^3.1.1",
     "express-rate-limit": "^7.4.0",
     "express-session": "^1.18.0",
+    "factory-bot": "^6.3.1",
     "helmet": "^7.1.0",
     "host-csrf": "^1.0.2",
+    "mocha": "^10.7.3",
     "mongoose": "^8.6.1",
     "nodemon": "^3.1.4",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
     "prettier": "^3.3.3",
+    "puppeteer": "^23.4.1",
     "xss-clean": "^0.1.4"
   }
 }
