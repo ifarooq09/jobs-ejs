@@ -14,7 +14,7 @@ factory.define("job", Job, {
   status: () =>
     ["interview", "declined", "pending"][Math.floor(3 * Math.random())], // random one of these
 });
-factory.define("user", User, {
+factory.define("users", User, {
   name: () => faker.person.fullName(),
   email: () => faker.internet.email(),
   password: () => faker.internet.password(),

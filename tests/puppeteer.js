@@ -1,5 +1,6 @@
 const puppeteer = require("puppeteer");
 require("../app");
+// const { expect } = require("chai");
 const { seed_db, testUserPassword } = require("../util/seed_db");
 const Job = require("../models/Job");
 
@@ -7,7 +8,6 @@ let testUser = null;
 
 let page = null;
 let browser = null;
-
 // Launch the browser and open a new blank page
 describe("jobs-ejs puppeteer test", function () {
   before(async function () {
@@ -17,21 +17,18 @@ describe("jobs-ejs puppeteer test", function () {
     page = await browser.newPage();
     await page.goto("http://localhost:3000");
   });
-  
   after(async function () {
     this.timeout(5000);
     await browser.close();
   });
-  
   describe("got to site", function () {
     it("should have completed a connection", async function () {});
   });
-  
   describe("index page test", function () {
     this.timeout(10000);
     it("finds the index page logon link", async () => {
       this.logonLink = await page.waitForSelector(
-        "a ::-p-text(Click this link to logon)"
+        "a ::-p-text(Click this link to logon)",
       );
     });
     it("gets to the logon page", async () => {
@@ -40,7 +37,6 @@ describe("jobs-ejs puppeteer test", function () {
       const email = await page.waitForSelector('input[name="email"]');
     });
   });
-  
   describe("logon page test", function () {
     this.timeout(20000);
     it("resolves all the fields", async () => {
@@ -63,47 +59,85 @@ describe("jobs-ejs puppeteer test", function () {
     });
   });
 
-  // New tests for job operations
+  //more
   describe("puppeteer job operations", function () {
-    this.timeout(20000);
+    this.timeout(30000);
 
-    it("clicks on the jobs list link and verifies the job listings", async () => {
-      await page.click('a ::-p-text(View Jobs)'); // Adjust the selector as needed
-      await page.waitForNavigation();
+    it("should navigate to the jobs list and verify entries", async () => {
+        const { expect } = await import('chai');    
+        const jobsLink = await page.waitForSelector('a ::-p-text(View Jobs)');
+        await jobsLink.click();
+        await page.waitForNavigation();
+        
+        const content = await page.content();
+        
+        // Count the number of <tr> entries in the jobs list
+        const jobEntries = content.split('<tr>').length - 1; // -1 because of the header row
+        expect(jobEntries).to.equal(20, "Expected 20 job entries in the list.");
+      });
+
+      it("should open the 'Add A Job' form and validate its fields", async () => {
+        const { expect } = await import('chai');   
+        const addNewJobLink = await page.waitForSelector('a[href="/jobs/new"]');
+        await addNewJobLink.click();
+        await page.waitForNavigation();
+
+        const formTitle = await page.waitForSelector("h2");
+        const titleText = await formTitle.evaluate(el => el.textContent);
+        expect(titleText).to.equal("New Job");
+
+        const companyField = await page.waitForSelector('input[name="company"]', { timeout: 10000 });
+        const positionField = await page.waitForSelector('input[name="position"]', { timeout: 10000 });
+        const statusField = await page.waitForSelector('input[name="status"]', { timeout: 10000 });
+        const addButton = await page.waitForSelector('button[type="submit"]', { timeout: 10000 });
+    
+        expect(companyField).to.exist;
+        expect(positionField).to.exist;
+        expect(statusField).to.exist;
+        expect(addButton).to.exist;
+    
+        const companyValue = await companyField.evaluate(el => el.value);
+        const positionValue = await positionField.evaluate(el => el.value);
+        const statusValue = await statusField.evaluate(el => el.value);
+    
+        expect(companyValue).to.equal('');
+        expect(positionValue).to.equal('');
+        expect(statusValue).to.equal('');
+    
+
+    });
+    
+
+    it("should fill out the form and add a job", async () => {
+        const { expect } = await import('chai');   
+
+        const companyField = await page.waitForSelector('input[name="company"]', { timeout: 10000 });
+        const positionField = await page.waitForSelector('input[name="position"]', { timeout: 10000 });
+        const statusField = await page.waitForSelector('input[name="status"]', { timeout: 10000 });
+        const addButton = await page.waitForSelector('button[type="submit"]', { timeout: 10000 });
+
+        const companyName = "Test Company";
+        const positionName = "Test Position";
+        const statusName = "interview";
+
+        await companyField.type(companyName);
+        await positionField.type(positionName);
+        await statusField.type(statusName);
+        
+        await addButton.click();
+        await page.waitForNavigation();
+
+        const formTitle = await page.waitForSelector("title");
+        const titleText = await formTitle.evaluate(el => el.textContent);
       
-      const content = await page.content();
-      const jobEntries = content.split('<tr>').length - 1; // Count <tr> tags
-      expect(jobEntries).to.equal(20); // Expecting 20 job entries
-    });
+        expect(titleText).to.equal("Jobs List");
 
-    it("navigates to the Add A Job form", async () => {
-      await page.click('a ::-p-text(Add A Job)');
-      await page.waitForNavigation();
+        const latestJob = await Job.findOne({}).sort({ createdAt: -1 }).exec(); 
+        expect(latestJob).to.exist;
+        expect(latestJob.company).to.equal(companyName);
+        expect(latestJob.position).to.equal(positionName);
+        expect(latestJob.status).to.equal(statusName);
 
-      const formTitle = await page.waitForSelector('h1 ::-p-text(Add A Job)'); // Adjust as needed
-      expect(formTitle).to.exist; // Verify that the form is displayed
-      this.companyField = await page.waitForSelector('input[name="company"]');
-      this.positionField = await page.waitForSelector('input[name="position"]');
-      this.addButton = await page.waitForSelector('button ::-p-text(Add Job)');
-    });
-
-    it("adds a new job listing", async () => {
-      const companyName = "Test Company";
-      const positionName = "Test Position";
-
-      await this.companyField.type(companyName);
-      await this.positionField.type(positionName);
-      await this.addButton.click();
-      await page.waitForNavigation();
-
-      const successMessage = await page.waitForSelector('p ::-p-text(Job listing has been added.)');
-      expect(successMessage).to.exist;
-
-      // Check the database to verify the job entry
-      const latestJob = await Job.findOne({ company: companyName, position: positionName });
-      expect(latestJob).to.exist;
-      expect(latestJob.company).to.equal(companyName);
-      expect(latestJob.position).to.equal(positionName);
     });
   });
 });
