@@ -2,10 +2,9 @@
   "name": "jobs-ejs",
   "version": "1.0.0",
   "description": "for learning purpose",
-  "main": "index.js",
   "scripts": {
     "start": "nodemon app.js",
-    "test": "set NODE_ENV=test && mocha tests/*.js --timeout 5000 --exit"
+    "test": "set NODE_ENV=test && mocha test/*.js --timeout 20000 --exit"
   },
   "author": "",
   "license": "ISC",

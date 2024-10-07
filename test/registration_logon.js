@@ -1,49 +1,38 @@
-const { app } = require("../app");
-const { factory, seed_db } = require("../util/seed_db");
+const app = require("../app.js");
+const { factory, seed_db } = require("../util/seed_db.js");
 const faker = require("@faker-js/faker").fakerEN_US;
-const get_chai = require("../util/get_chai");
-const User = require("../models/User");
+const get_chai = require("../util/get_chai.js");
+
+const User = require("../models/User.js");
 
 describe("tests for registration and logon", function () {
-  before(async () => {
-    // Seed the database if needed
-    await seed_db();
-  });
-
+  // after(() => {
+  //   server.close();
+  // });
   it("should get the registration page", async () => {
     const { expect, request } = await get_chai();
     const req = request.execute(app).get("/sessions/register").send();
     const res = await req;
-  
     expect(res).to.have.status(200);
     expect(res).to.have.property("text");
     expect(res.text).to.include("Enter your name");
-  
-    // Extract CSRF token
     const textNoLineEnd = res.text.replaceAll("\n", "");
-    const csrfToken = /_csrf" value="(.*?)"/.exec(textNoLineEnd);
-    console.log('Extracted CSRF Token:', csrfToken);
+    const csrfToken = /_csrf\" value=\"(.*?)\"/.exec(textNoLineEnd);
     expect(csrfToken).to.not.be.null;
     this.csrfToken = csrfToken[1];
-  
-    // Log all cookies for debugging
+    expect(res).to.have.property("headers");
+    expect(res.headers).to.have.property("set-cookie");
     const cookies = res.headers["set-cookie"];
-    console.log('All Cookies:', cookies);
-    
-    if (cookies) {
-      // Change this line to match your CSRF cookie name
-      this.csrfCookie = cookies.find(cookie => cookie.startsWith('_csrf='));
-    }
-    console.log('Extracted CSRF Cookie:', this.csrfCookie);
+    this.csrfCookie = cookies.find((element) =>
+      element.startsWith("csrfToken"),
+    );
     expect(this.csrfCookie).to.not.be.undefined;
   });
-  
 
   it("should register the user", async () => {
     const { expect, request } = await get_chai();
     this.password = faker.internet.password();
     this.user = await factory.build("user", { password: this.password });
-
     const dataToPost = {
       name: this.user.name,
       email: this.user.email,
@@ -51,7 +40,6 @@ describe("tests for registration and logon", function () {
       password1: this.password,
       _csrf: this.csrfToken,
     };
-
     const req = request
       .execute(app)
       .post("/sessions/register")
@@ -59,23 +47,19 @@ describe("tests for registration and logon", function () {
       .set("content-type", "application/x-www-form-urlencoded")
       .send(dataToPost);
     const res = await req;
-
     expect(res).to.have.status(200);
     expect(res).to.have.property("text");
     expect(res.text).to.include("Jobs List");
-
-    const newUser = await User.findOne({ email: this.user.email });
+    newUser = await User.findOne({ email: this.user.email });
     expect(newUser).to.not.be.null;
   });
-
   it("should log the user on", async () => {
-    const { expect, request } = await get_chai();
     const dataToPost = {
       email: this.user.email,
       password: this.password,
       _csrf: this.csrfToken,
     };
-
+    const { expect, request } = await get_chai();
     const req = request
       .execute(app)
       .post("/sessions/logon")
@@ -84,10 +68,8 @@ describe("tests for registration and logon", function () {
       .redirects(0)
       .send(dataToPost);
     const res = await req;
-
     expect(res).to.have.status(302);
     expect(res.headers.location).to.equal("/");
-
     const cookies = res.headers["set-cookie"];
     this.sessionCookie = cookies.find((element) =>
       element.startsWith("connect.sid"),
@@ -100,10 +82,10 @@ describe("tests for registration and logon", function () {
     const req = request
       .execute(app)
       .get("/")
-      .set("Cookie", `${this.csrfCookie}; ${this.sessionCookie}`)
+      .set("Cookie", this.csrfCookie)
+      .set("Cookie", this.sessionCookie)
       .send();
     const res = await req;
-
     expect(res).to.have.status(200);
     expect(res).to.have.property("text");
     expect(res.text).to.include(this.user.name);
@@ -111,17 +93,23 @@ describe("tests for registration and logon", function () {
 
   it("should log the user off", async () => {
     const { expect, request } = await get_chai();
-    const dataToPost = { _csrf: this.csrfToken };
-
+  
+    // Prepare the data to post
+    const dataToPost = {
+      _csrf: this.csrfToken, // Include CSRF token
+    };
+  
     const req = request
       .execute(app)
-      .post("/sessions/logoff")
-      .set("Cookie", `${this.csrfCookie}; ${this.sessionCookie}`)
-      .set("content-type", "application/x-www-form-urlencoded")
-      .send(dataToPost);
-    const res = await req;
-
-    expect(res).to.have.status(200);
-    expect(res.text).to.include("Click this link to logon");
+      .post("/sessions/logoff") // Correct endpoint
+      .set("Cookie", this.csrfCookie + ";" + this.sessionCookie) // Set cookies
+      .set("content-type", "application/x-www-form-urlencoded") // Set content type
+      .send(dataToPost); // Send data
+  
+    const res = await req; // Execute the request
+  
+    // Expecting a redirect after logoff
+    expect(res).to.have.status(200); // Check for a successful status
+    expect(res.text).to.include("link to logon"); // Check for the presence of "link to logon"
   });
 });

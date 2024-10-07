@@ -91,8 +91,8 @@ app.use("/sessions", csrf_middleware, require("./routes/sessionRoutes"));
 app.use("/secretWord", authMiddleware, csrf_middleware, secretWordRouter);
 app.use("/jobs", csrf_middleware, authMiddleware, jobsRouter); // Ensure auth middleware is used here
 
-app.get("/multiply", (req, res) => {
-    const result = req.query.first * req.query.second;
+app.get("/multiply", async (req, res) => {
+    const result = await req.query.first * req.query.second;
     if (isNaN(result)) {
         result = "NaN";
     } else if (result == null) {

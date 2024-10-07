@@ -1,5 +1,5 @@
-const Job = require("../models/Job");
-const User = require("../models/User");
+const Job = require("../models/Job.js");
+const User = require("../models/User.js");
 const faker = require("@faker-js/faker").fakerEN_US;
 const FactoryBot = require("factory-bot");
 require("dotenv").config();
@@ -12,9 +12,9 @@ factory.define("job", Job, {
   company: () => faker.company.name(),
   position: () => faker.person.jobTitle(),
   status: () =>
-    ["interview", "declined", "pending"][Math.floor(3 * Math.random())], // random one of these
+    ['interview', 'declined', 'pending'][Math.floor(3 * Math.random())], // random one of these
 });
-factory.define("users", User, {
+factory.define("user", User, {
   name: () => faker.person.fullName(),
   email: () => faker.internet.email(),
   password: () => faker.internet.password(),
